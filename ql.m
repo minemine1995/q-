@@ -3,9 +3,11 @@ clc
 states=6;       %初始数量
 actions=6;      %动作数量
 final_state=6; %目标状态
-episode=3000;    %迭代次数
+episode=40;    %迭代次数
 gamma=1;        %折扣系数
 alpha=0.8;      %学习速率
+p_max=zeros(states,actions);%按Q值表选最大值进行动作的概率
+T=1;              %退火温度
 reward=[
 %  1    2    3    4    5     6 
  -inf -inf -inf -6   -8    -inf; %1
@@ -24,10 +26,13 @@ for i=1:episode
            print("not connected")
            break
         else
-            next_action=choose_next_action(current_state,optinal_action);     %根据退火算法选择当前状态的一个动作
-            next_state_optinal=find(reward(next_action,:)>=-10)    ;                                    
+            next_action=choose_next_action(Q_table,current_state,optinal_action,p_max);     %根据退火算法选择当前状态的一个动作
+            next_state_optinal=find(reward(next_action,:)>=-10);                                    
             maxQ=max(Q_table(next_action,next_state_optinal));
+            Q_current=Q_table(current_state,next_action);
             Q_table(current_state,next_action)=(1-alpha)*Q_table(current_state,next_action)+alpha*(reward(current_state,next_action)+gamma*maxQ);
+            Q_next=Q_table(current_state,next_action);
+            p_max(current_state,next_action)=pmax(Q_current,Q_next,T);
             current_state=next_action;
         end
     
@@ -47,6 +52,15 @@ for i=1:episode
 end
 Q_table
 
-function [next_action]=choose_next_action(current_state,optinal_action)
+function [next_action]=choose_next_action(Q_table,current_state,optinal_action,p_max)
+    [max_Q,max_action]=max(Q_table(current_state,optinal_action));
+    if rand<=p_max(current_state,optinal_action(max_action))
     next_action=optinal_action(randperm(length(optinal_action),1));
+    else
+        next_action=optinal_action(max_action);
+    end
+end
+
+function [p_max]=pmax(Q_current,Q_next,T)
+p_max=exp(-abs((Q_current-Q_next)/T/Q_next));
 end
